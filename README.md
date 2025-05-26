@@ -1,1 +1,231 @@
-# schol
+
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>سامانه مدیریت مکتب افغان</title>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn&display=swap" rel="stylesheet">
+  <style>
+    * {
+      font-family: 'Vazirmatn', sans-serif;
+    }
+    body {
+      background: url('https://images.unsplash.com/photo-1577896851231-70ef18881754?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80') no-repeat center center fixed;
+      background-size: cover;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container, .admin-panel, .teacher-panel, .parent-panel {
+      background-color: rgba(255,255,255,0.95);
+      border-radius: 15px;
+      padding: 30px;
+      width: 90%;
+      max-width: 600px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+    h1, h2, h3 {
+      color: #1d3557;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background-color: #1d3557;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      margin-top: 10px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #0d1c34;
+    }
+    .hidden {
+      display: none;
+    }
+    .record {
+      background: #f8f9fa;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: 10px;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="login-panel">
+    <h1>سامانه مدیریت (نام مکتب)</h1>
+    <select id="userTypeSelect">
+      <option value="admin">مدیر</option>
+      <option value="teacher">معلم</option>
+      <option value="parent">والدین</option>
+    </select>
+    <input type="text" id="username" placeholder="نام کاربری">
+    <input type="password" id="password" placeholder="رمز عبور">
+    <button onclick="handleLogin()">ورود</button>
+  </div>
+
+  <div class="admin-panel hidden" id="admin-panel">
+    <h2>پنل مدیریت</h2>
+    <h3>افزودن معلم</h3>
+    <input type="text" id="teacherUser" placeholder="نام کاربری معلم">
+    <input type="password" id="teacherPass" placeholder="رمز عبور معلم">
+    <button onclick="registerSpecificUser('teacher')">ثبت معلم</button>
+    <h3>افزودن والد</h3>
+    <input type="text" id="parentUser" placeholder="نام کاربری والد">
+    <input type="password" id="parentPass" placeholder="رمز عبور والد">
+    <button onclick="registerSpecificUser('parent')">ثبت والد</button>
+    <button onclick="logout()">خروج</button>
+  </div>
+
+  <div class="teacher-panel hidden" id="teacher-panel">
+    <h2>پنل معلم</h2>
+    <input type="text" id="studentName" placeholder="نام شاگرد">
+    <input type="text" id="studentFather" placeholder="نام پدر شاگرد">
+    <select id="grade">
+      <option disabled selected>انتخاب صنف</option>
+      <script>
+        for(let i=1; i<=10; i++) {
+          document.write(`<option value="${i}الف">صنف ${i} الف</option><option value="${i}ب">صنف ${i} ب</option>`);
+        }
+      </script>
+    </select>
+    <input type="text" id="subject" placeholder="مضمون">
+    <select id="performance">
+      <option value="عالی">عالی</option>
+      <option value="متوسط">متوسط</option>
+      <option value="ضعیف">ضعیف</option>
+    </select>
+    <textarea id="extraNote" placeholder="توضیحات اضافی"></textarea>
+    <input type="date" id="recordDate">
+    <button onclick="submitStudentData()">ثبت آمار</button>
+    <div id="teacherRecords"></div>
+    <button onclick="logout()">خروج</button>
+  </div>
+
+  <div class="parent-panel hidden" id="parent-panel">
+    <h2>پنل والدین</h2>
+    <div id="studentInfo"></div>
+    <button onclick="logout()">خروج</button>
+  </div>
+
+  <script>
+    let users = JSON.parse(localStorage.getItem("users")) || {
+      admin: { "مدیر": "1234" },
+      teacher: {},
+      parent: {}
+    };
+    let studentRecords = JSON.parse(localStorage.getItem("records")) || [];
+    let currentUser = null;
+    let currentRole = null;
+
+    function saveData() {
+      localStorage.setItem("users", JSON.stringify(users));
+      localStorage.setItem("records", JSON.stringify(studentRecords));
+    }
+
+    function handleLogin() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+      const userType = document.getElementById("userTypeSelect").value;
+      if (users[userType][username] === password) {
+        currentUser = username;
+        currentRole = userType;
+        document.getElementById("login-panel").classList.add("hidden");
+        document.getElementById(`${userType}-panel`).classList.remove("hidden");
+        if (userType === "parent") showStudentInfo();
+        if (userType === "teacher") showTeacherRecords();
+        document.getElementById("username").value = "";
+        document.getElementById("password").value = "";
+      } else {
+        alert("اطلاعات ورود نادرست است.");
+      }
+    }
+
+    function registerSpecificUser(role) {
+      const username = document.getElementById(`${role}User`).value.trim();
+      const password = document.getElementById(`${role}Pass`).value.trim();
+      if (!username || !password) return alert("تمام فیلدها الزامی است.");
+      users[role][username] = password;
+      saveData();
+      document.getElementById(`${role}User`).value = "";
+      document.getElementById(`${role}Pass`).value = "";
+      alert("کاربر با موفقیت ثبت شد.");
+    }
+
+    function submitStudentData() {
+      const record = {
+        name: document.getElementById("studentName").value,
+        father: document.getElementById("studentFather").value,
+        grade: document.getElementById("grade").value,
+        subject: document.getElementById("subject").value,
+        performance: document.getElementById("performance").value,
+        note: document.getElementById("extraNote").value,
+        date: document.getElementById("recordDate").value,
+        parent: document.getElementById("studentFather").value
+      };
+      if (!record.name || !record.father || !record.grade || !record.subject) {
+        return alert("تمام فیلدهای الزامی را پر کنید.");
+      }
+      studentRecords.push(record);
+      saveData();
+      showTeacherRecords();
+      document.getElementById("studentName").value = "";
+      document.getElementById("studentFather").value = "";
+      document.getElementById("grade").selectedIndex = 0;
+      document.getElementById("subject").value = "";
+      document.getElementById("performance").value = "عالی";
+      document.getElementById("extraNote").value = "";
+      document.getElementById("recordDate").value = "";
+    }
+
+    function showTeacherRecords() {
+      const div = document.getElementById("teacherRecords");
+      const names = studentRecords.map(r => r.name);
+      div.innerHTML = '<h3>شاگردان ثبت شده:</h3>' + [...new Set(names)].map(n => `<p>👨‍🎓 ${n}</p>`).join('');
+    }
+
+    function showStudentInfo() {
+      const div = document.getElementById("studentInfo");
+      const records = studentRecords.filter(r => r.parent === currentUser);
+      if (records.length === 0) {
+        div.innerHTML = "<p>آمار برای فرزند شما ثبت نشده است.</p>";
+        return;
+      }
+      div.innerHTML = records.map(r => `
+        <div class="record">
+          <p><strong>نام:</strong> ${r.name}</p>
+          <p><strong>نام پدر:</strong> ${r.father}</p>
+          <p><strong>صنف:</strong> ${r.grade}</p>
+          <p><strong>مضمون:</strong> ${r.subject}</p>
+          <p><strong>وضعیت:</strong> ${r.performance}</p>
+          <p><strong>تاریخ:</strong> ${r.date}</p>
+          <p><strong>توضیحات:</strong> ${r.note}</p>
+        </div>
+      `).join('');
+    }
+
+    function logout() {
+      ["admin-panel", "teacher-panel", "parent-panel"].forEach(p => document.getElementById(p).classList.add("hidden"));
+      document.getElementById("login-panel").classList.remove("hidden");
+      currentUser = null;
+      currentRole = null;
+      document.getElementById("username").value = "";
+      document.getElementById("password").value = "";
+    }
+  </script>
+</body>
+</html>
